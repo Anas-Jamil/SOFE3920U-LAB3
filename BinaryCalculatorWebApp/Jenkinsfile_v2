@@ -48,48 +48,54 @@ pipeline {
         
         stage ('Containerize') {
             steps {
-                sh 'gcloud auth activate-service-account --key-file $SERVICE_ACCOUNT'
-                sh 'gcloud config set project $PROJECT'
-                sh 'gcloud builds submit -t $IMAGE_TAG ./BinaryCalculatorWebApp --suppress-logs'
+                container('gcloud') {
+                    sh 'gcloud auth activate-service-account --key-file $SERVICE_ACCOUNT'
+                    sh 'gcloud config set project $PROJECT'
+                    sh 'gcloud builds submit -t $IMAGE_TAG ./BinaryCalculatorWebApp --suppress-logs'
+                }
             }
         }
         
         stage ('Deployment') {
             steps {
-                sh 'gcloud auth activate-service-account --key-file $SERVICE_ACCOUNT'
-                sh 'gcloud config set project $PROJECT'
-                sh 'gcloud container clusters get-credentials $CLUSTER --region=$CLUSTER_ZONE'
-                
-                script {
-                    try {
-                        sh 'kubectl delete deployment binarycalculator-deployment || true'
-                        sh 'kubectl delete service binarycalculator-service || true'
-                    } catch (Exception e) {
-                        echo "No previous deployment or service to delete."
+                container('gcloud') {
+                    sh 'gcloud auth activate-service-account --key-file $SERVICE_ACCOUNT'
+                    sh 'gcloud config set project $PROJECT'
+                    sh 'gcloud container clusters get-credentials $CLUSTER --region=$CLUSTER_ZONE'
+                    
+                    script {
+                        try {
+                            sh 'kubectl delete deployment binarycalculator-deployment || true'
+                            sh 'kubectl delete service binarycalculator-service || true'
+                        } catch (Exception e) {
+                            echo "No previous deployment or service to delete."
+                        }
                     }
+                    
+                    sh 'kubectl create deployment binarycalculator-deployment --image $IMAGE_TAG --port=8080'
                 }
-                
-                sh 'kubectl create deployment binarycalculator-deployment --image $IMAGE_TAG --port=8080'
             }
         }
         
         stage ('Expose Service') {
             steps {
-                sh 'gcloud auth activate-service-account --key-file $SERVICE_ACCOUNT'
-                sh 'gcloud config set project $PROJECT'
-                sh 'gcloud container clusters get-credentials $CLUSTER --region=$CLUSTER_ZONE'
-                
-                script {
-                    def serviceExists = sh (
-                        script: 'kubectl get service binarycalculator-service || true',
-                        returnStatus: true
-                    )
+                container('gcloud') {
+                    sh 'gcloud auth activate-service-account --key-file $SERVICE_ACCOUNT'
+                    sh 'gcloud config set project $PROJECT'
+                    sh 'gcloud container clusters get-credentials $CLUSTER --region=$CLUSTER_ZONE'
                     
-                    if (serviceExists != 0) {
-                        sh 'kubectl expose deployment binarycalculator-deployment --type=LoadBalancer --name=binarycalculator-service'
+                    script {
+                        def serviceExists = sh (
+                            script: 'kubectl get service binarycalculator-service || true',
+                            returnStatus: true
+                        )
+                        
+                        if (serviceExists != 0) {
+                            sh 'kubectl expose deployment binarycalculator-deployment --type=LoadBalancer --name=binarycalculator-service'
+                        }
+                        
+                        sh "kubectl get service binarycalculator-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}'"
                     }
-                    
-                    sh "kubectl get service binarycalculator-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}'"
                 }
             }
         }
