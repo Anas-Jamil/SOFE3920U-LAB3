@@ -1,13 +1,14 @@
 pipeline {
     environment {
-        SERVICE_ACCOUNT= credentials('service_account')    // secret file for the GCP credential JSON file. I set it manually in Jenkins credentials
-        PROJECT = credentials('project_id')
-        REPO_PATH= credentials("repo_path") // secret text for the repo path. I set it manually in Jenkins credentials
-        APP_NAME = "BinaryCalculatorWebApp"
-        IMAGE_TAG = "$REPO_PATH/$APP_NAME"
-        CLUSTER = credentials("cluster_name") // secret text for the cluster name. I set it manually in Jenkins credentials
-        CLUSTER_ZONE = credentials("cluster_zone") // secret text for the cluster zone. I set it manually in Jenkins credentials
+        SERVICE_ACCOUNT = credentials('service_account') // GCP service account JSON
+        PROJECT = credentials('project_id')              // GCP project ID
+        REPO_PATH = credentials('repo_path')             // Should be something like gcr.io/lab3-452521
+        APP_NAME = "binarycalculatorwebapp"              // Application name
+        IMAGE_TAG = "$REPO_PATH/$APP_NAME:latest"        // Full Docker image path with a tag
+        CLUSTER = credentials('cluster_name')            // Kubernetes cluster name
+        CLUSTER_ZONE = credentials('cluster_zone')       // Cluster zone
     }
+
     agent{   // create a node under the name gcloud that running google/cloud-sdk:latest docker image 
         kubernetes {
         label 'sample-app'
